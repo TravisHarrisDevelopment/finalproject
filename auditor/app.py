@@ -90,5 +90,16 @@ def execute(args):
     Parameter args: The command line arguments for the application (minus the application name)
     Precondition: args is a list of strings
     """
-    pass                    # Implement this function
+    if len(args) > 2 or len(args)==0:
+        print("Usage: python auditor dataset [output.csv]")
+    else:
+        if len(args)==1:
+            if args[0] == "--test":
+                tests.test_all()
+            else:
+                discover_violations(args[0])
+        if len(args)==2:
+            if args[0] == "--test" or args[1] == "--test":
+                print("Usage: python auditor dataset [output.csv]")
+            discover_violations(args[0], args[1])
 
