@@ -93,8 +93,6 @@ def bad_visibility(visibility,minimum):
     return False        
 
 
-
-
 def bad_winds(winds,maxwind,maxcross):
     """
     Returns True if the wind measurement violates the maximums, False otherwise
@@ -225,7 +223,6 @@ def bad_ceiling(ceiling,minimum):
     return False
     
 
-
 def get_weather_report(takeoff,weather):
     """
     Returns the most recent weather report at or before take-off.
@@ -322,7 +319,6 @@ def get_weather_report(takeoff,weather):
             return weather[d.isoformat()]
 
 
-
 def get_weather_violation(weather,minimums):
     """
     Returns a string representing the type of weather violation (empty string if flight is ok)
@@ -405,7 +401,6 @@ def get_weather_violation(weather,minimums):
     return message
     
 
-
 # FILES TO AUDIT
 # Sunrise and sunset
 DAYCYCLE = 'daycycle.json'
@@ -465,4 +460,40 @@ def list_weather_violations(directory):
         # Get the pilot minimums
         # Get the weather conditions
         # Check for a violation and add to result if so
-    pass
+    violation_list = []
+    min_file = utils.read_csv(directory + "/" + MINIMUMS)
+    # CATEGORY,CONDITIONS,AREA,TIME,CEILING,VISIBILITY,WIND,CROSSWIND
+    # Student,VMC,Pattern,Day,2000,5,20,8
+    stu_file = utils.read_csv(directory + "/" + STUDENTS)
+    # ID,LAST NAME,FIRST NAME,JOINED,SOLO,LICENSE,50 HOURS,INSTRUMENT,ADVANCED,MULTIENGINE
+    # S00304,Wilson,Zachary,2015-01-07,2015-03-24,,,,,
+    lsn_file = utils.read_csv(directory + "/" + LESSONS)
+    # STUDENT,AIRPLANE,INSTRUCTOR,TAKEOFF,LANDING,FILED,AREA
+    # S00842,133CZ,I053,2017-01-02T09:00:00-05:00,2017-01-02T11:00:00-05:00,VFR,Pattern
+    wtr_json = utils.read_json(directory + "/" + WEATHER)
+    day_json = utils.read_json(directory + "/" + DAYCYCLE)
+    for row in lsn_file[1:]:
+        takeoff_datetime= parse(row[3])
+        stu_id = row[0]
+        student_pilot = utils.get_for_id(stu_id, stu_file)
+        creds = pilots.get_certification(takeoff_datetime, student_pilot)
+        area = row[6]
+        instructed = True
+        if row[2] == None or row[2]=="":
+            instructed = False
+        vfr=False
+        if row[5] == 'VFR':
+            vfr=True
+        day = utils.daytime(takeoff_datetime, day_json)
+        mins = pilots.get_minimums(creds, area, instructed, vfr, day, min_file)
+        weather = get_weather_report(takeoff_datetime, wtr_json)
+        violation = get_weather_violation(weather, mins)
+        if stu_id == 'S00591':
+            print(takeoff_datetime)
+            print("call mins with creds:",creds,"area:",area,"instructed:",instructed,"vfr:",vfr,"day", day, "and the minimums file")
+            print("mins:", mins)
+            print("violation:", violation)
+
+        if violation != '':
+            violation_list.append([row[0], row[1], row[2], row[3], row[4], row[5], row[6], violation])
+    return violation_list
