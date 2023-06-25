@@ -462,14 +462,8 @@ def list_weather_violations(directory):
         # Check for a violation and add to result if so
     violation_list = []
     min_file = utils.read_csv(directory + "/" + MINIMUMS)
-    # CATEGORY,CONDITIONS,AREA,TIME,CEILING,VISIBILITY,WIND,CROSSWIND
-    # Student,VMC,Pattern,Day,2000,5,20,8
     stu_file = utils.read_csv(directory + "/" + STUDENTS)
-    # ID,LAST NAME,FIRST NAME,JOINED,SOLO,LICENSE,50 HOURS,INSTRUMENT,ADVANCED,MULTIENGINE
-    # S00304,Wilson,Zachary,2015-01-07,2015-03-24,,,,,
     lsn_file = utils.read_csv(directory + "/" + LESSONS)
-    # STUDENT,AIRPLANE,INSTRUCTOR,TAKEOFF,LANDING,FILED,AREA
-    # S00842,133CZ,I053,2017-01-02T09:00:00-05:00,2017-01-02T11:00:00-05:00,VFR,Pattern
     wtr_json = utils.read_json(directory + "/" + WEATHER)
     day_json = utils.read_json(directory + "/" + DAYCYCLE)
     for row in lsn_file[1:]:
@@ -488,12 +482,11 @@ def list_weather_violations(directory):
         mins = pilots.get_minimums(creds, area, instructed, vfr, day, min_file)
         weather = get_weather_report(takeoff_datetime, wtr_json)
         violation = get_weather_violation(weather, mins)
-        if stu_id == 'S00591':
-            print(takeoff_datetime)
-            print("call mins with creds:",creds,"area:",area,"instructed:",instructed,"vfr:",vfr,"day", day, "and the minimums file")
-            print("mins:", mins)
-            print("violation:", violation)
-
+        #if stu_id == 'S00591':
+        #    print(takeoff_datetime)
+        #    print("call mins with creds:",creds,"area:",area,"instructed:",instructed,"vfr:",vfr,"day", day, "and the minimums file")
+        #    print("mins:", mins)
+        #    print("violation:", violation)
         if violation != '':
             violation_list.append([row[0], row[1], row[2], row[3], row[4], row[5], row[6], violation])
     return violation_list

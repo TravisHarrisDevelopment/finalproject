@@ -8,8 +8,8 @@ Technically, we could have put many of these functions in __main__.py.  That is 
 main module of this application anyway.  However, for testing purposes we want all
 functions in modules and we only want script code in the file __main__.py
 
-Author: YOUR NAME HERE
-Date: THE DATE HERE
+Author: Travis Harris
+Date:   June 25, 2023
 """
 import utils
 import tests
@@ -54,7 +54,20 @@ def discover_violations(directory,output):
     Parameter output: The CSV file to store the results
     Precondition: output is None or a string that is a valid file name
     """
-    pass                    # Implement this function
+    dataset = os.path.join('..', directory)
+    results = violations.list_weather_violations(dataset)
+    if len(results) == 1:
+        print("1 violation found.")
+    elif len(results) > 1:
+        print(len(results), "violations found.")
+    else:
+        print("No violations found.")
+    if output != None:
+        resultforfile = []
+        resultforfile.append(['STUDENT','AIRPLANE','INSTRUCTOR','TAKEOFF','LANDING','FILED','AREA','REASON'])
+        for row in results:
+            resultforfile.append(row)
+        utils.write_csv(resultforfile, output)
 
 
 def execute(args):
