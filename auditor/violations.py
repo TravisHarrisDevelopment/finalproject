@@ -28,12 +28,14 @@ the functions simpler (because the preconditions ensure we have less to worry ab
 enforcing these preconditions can be quite hard. That is why it is not necessary to 
 enforce any of the preconditions in this module.
 
-Author: YOUR NAME HERE
-Date: THE DATE HERE
+Author: Travis Harris
+Date:   June 23, 2023
 """
 import utils
 import pilots
 import os.path
+from dateutil.parser import parse
+from datetime import timedelta
 
 
 # WEATHER FUNCTIONS
@@ -71,7 +73,24 @@ def bad_visibility(visibility,minimum):
     Parameter minimum: The minimum allowed visibility (in statute miles)
     Precondition: minimum is a float or int
     """
-    pass                    # Implement this function
+    if visibility == "unavailable":
+        return True
+    
+    vis_in_feet = 0
+    if "minimum" in visibility:
+        if visibility["units"]=='SM':
+            vis_in_feet = visibility["minimum"] *5280
+        elif visibility["units"]=='FT':
+            vis_in_feet = visibility["minimum"]
+    elif "prevailing" in visibility:
+        if visibility["units"]=='SM':
+            vis_in_feet = visibility["prevailing"] *5280
+        elif visibility["units"]=='FT':
+            vis_in_feet = visibility["prevailing"]
+    
+    if vis_in_feet < (minimum *5280):
+        return True
+    return False        
 
 
 def bad_winds(winds,maxwind,maxcross):
@@ -116,7 +135,35 @@ def bad_winds(winds,maxwind,maxcross):
     Parameter maxcross: The maximum allowable crosswind speed (in knots)
     Precondition: maxcross is a float or int
     """
-    pass                    # Implement this function
+    #{'speed': 11.0, 'crosswind': 11.0, 'gusts': 15.0, 'units': 'MPS'}
+    
+    if winds == "calm":
+        return False
+    if winds == "unavailable":
+        return True
+    MPS_TO_KNOTS = 1.94384
+    windspeed = 0.0
+    crosswindspeed = 0.0
+    if "gusts" in winds:
+        if winds["units"] == "MPS":
+            windspeed = winds["gusts"]*MPS_TO_KNOTS
+        else:
+            windspeed = winds["gusts"]
+    elif "speed" in winds:
+        if winds["units"] == "MPS":
+            windspeed = winds["speed"]*MPS_TO_KNOTS
+        else:
+            windspeed = winds["speed"]
+    
+    if "crosswind" in winds:
+        if winds["units"] == "MPS":
+            crosswindspeed = winds["crosswind"]*MPS_TO_KNOTS
+        else:
+            crosswindspeed = winds["crosswind"]
+    if windspeed > maxwind or crosswindspeed > maxcross:
+        return True
+    else:
+        return False
 
 
 def bad_ceiling(ceiling,minimum):
@@ -160,8 +207,21 @@ def bad_ceiling(ceiling,minimum):
     Parameter minimum: The minimum allowed ceiling (in feet)
     Precondition: minimum is a float or int
     """
-    pass                    # Implement this function
+    if ceiling == 'clear':
+        return False
+    if ceiling == 'unavailable':
+        return True
+    lowest_ceiling = 70000.0 # max height of clouds on earth ~ 60k FT
+    for record in ceiling:
+        if "type" in record:
+            if record["type"]=="broken" or record["type"]=="overcast" or record["type"]== "indefinite ceiling":
+                if record["height"] < lowest_ceiling:
+                    lowest_ceiling = record["height"]
 
+    if lowest_ceiling < minimum:
+        return True
+    return False
+    
 
 def get_weather_report(takeoff,weather):
     """
@@ -243,7 +303,20 @@ def get_weather_report(takeoff,weather):
     
     # Search for time in dictionary
     # As fall back, find the closest time before takeoff
-    pass
+    isotakeoff = takeoff.isoformat()
+    if isotakeoff in weather:
+        return weather[isotakeoff]
+    #that didn't work strip out the minutes and seconds
+    isotakeoffToHour = isotakeoff[0:14]+"00:00"+ isotakeoff[19:]
+    if isotakeoffToHour in weather:
+        return weather[isotakeoffToHour]
+    #will try with counter at 48 hopefully there is a weather report within 2 days
+    counter = 1
+    theDate = parse(isotakeoffToHour)
+    while counter < 49:
+        d = theDate - timedelta(hours=counter)
+        if d.isoformat() in weather:
+            return weather[d.isoformat()]
 
 
 def get_weather_violation(weather,minimums):
@@ -304,8 +377,29 @@ def get_weather_violation(weather,minimums):
     Parameter minimums: The safety minimums for ceiling, visibility, wind, and crosswind
     Precondition: minimums is a list of four floats
     """
-    pass                    # Implement this function
-
+    message = ''
+    if weather == None:
+        return "Unknown"
+    if "wind" in weather:
+        if bad_winds(weather["wind"], minimums[2], minimums[3]):
+            if message == '':
+                message = "Winds"
+            else:
+                message = "Weather"
+    if "sky" in weather:
+        if bad_ceiling(weather["sky"], minimums[0]):
+            if message == '':
+                message = "Ceiling"
+            else:
+                message = "Weather"
+    if "visibility" in weather:
+        if bad_visibility(weather["visibility"], minimums[1]):
+            if message == '':
+                message = "Visibility"
+            else:
+                message = "Weather" 
+    return message
+    
 
 # FILES TO AUDIT
 # Sunrise and sunset
@@ -366,4 +460,33 @@ def list_weather_violations(directory):
         # Get the pilot minimums
         # Get the weather conditions
         # Check for a violation and add to result if so
-    pass
+    violation_list = []
+    min_file = utils.read_csv(directory + "/" + MINIMUMS)
+    stu_file = utils.read_csv(directory + "/" + STUDENTS)
+    lsn_file = utils.read_csv(directory + "/" + LESSONS)
+    wtr_json = utils.read_json(directory + "/" + WEATHER)
+    day_json = utils.read_json(directory + "/" + DAYCYCLE)
+    for row in lsn_file[1:]:
+        takeoff_datetime= parse(row[3])
+        stu_id = row[0]
+        student_pilot = utils.get_for_id(stu_id, stu_file)
+        creds = pilots.get_certification(takeoff_datetime, student_pilot)
+        area = row[6]
+        instructed = True
+        if row[2] == None or row[2]=="":
+            instructed = False
+        vfr=False
+        if row[5] == 'VFR':
+            vfr=True
+        day = utils.daytime(takeoff_datetime, day_json)
+        mins = pilots.get_minimums(creds, area, instructed, vfr, day, min_file)
+        weather = get_weather_report(takeoff_datetime, wtr_json)
+        violation = get_weather_violation(weather, mins)
+        #if stu_id == 'S00591':
+        #    print(takeoff_datetime)
+        #    print("call mins with creds:",creds,"area:",area,"instructed:",instructed,"vfr:",vfr,"day", day, "and the minimums file")
+        #    print("mins:", mins)
+        #    print("violation:", violation)
+        if violation != '':
+            violation_list.append([row[0], row[1], row[2], row[3], row[4], row[5], row[6], violation])
+    return violation_list

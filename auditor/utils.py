@@ -202,7 +202,6 @@ def daytime(time,daycycle):
     return False
 
 
-
 def get_for_id(id,table):
     """
     Returns (a copy of) a row of the table with the given id.
